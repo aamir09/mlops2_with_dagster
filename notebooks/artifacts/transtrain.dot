@@ -1,0 +1,69 @@
+// Dependency Graph
+digraph {
+	input_data_train [label=input_data_train]
+	sexencoder [label=sexencoder]
+	embarkedencoder [label=embarkedencoder]
+	input_data [label=input_data]
+	cabin_category [label=cabin_category]
+	sex [label=sex]
+	age [label=age]
+	final_imputed_features [label=final_imputed_features]
+	sex_category [label=sex_category]
+	parch [label=parch]
+	target_column [label=target_column]
+	fare [label=fare]
+	sibsp [label=sibsp]
+	engineered_features [label=engineered_features]
+	target [label=target]
+	cabin_t [label=cabin_t]
+	df_train [label=df_train]
+	df [label=df]
+	embarked [label=embarked]
+	family [label=family]
+	pclass [label=pclass]
+	index_column [label=index_column]
+	features [label=features]
+	cabinencoder [label=cabinencoder]
+	cabin [label=cabin]
+	embarked_category [label=embarked_category]
+	sexencoder [label="UD: sexencoder"]
+	embarkedencoder [label="UD: embarkedencoder"]
+	df_train [label="UD: df_train"]
+	df [label="UD: df"]
+	index_column [label="UD: index_column"]
+	target_column [label="UD: target_column"]
+	cabinencoder [label="UD: cabinencoder"]
+	df_train -> input_data_train
+	index_column -> input_data_train
+	df -> input_data
+	index_column -> input_data
+	cabin_t -> cabin_category
+	cabinencoder -> cabin_category
+	features -> sex
+	features -> age
+	engineered_features -> final_imputed_features
+	sex -> sex_category
+	sexencoder -> sex_category
+	features -> parch
+	features -> fare
+	features -> sibsp
+	pclass -> engineered_features
+	age -> engineered_features
+	fare -> engineered_features
+	cabin_category -> engineered_features
+	sex_category -> engineered_features
+	embarked_category -> engineered_features
+	family -> engineered_features
+	input_data_train -> target
+	target_column -> target
+	cabin -> cabin_t
+	features -> embarked
+	sibsp -> family
+	parch -> family
+	features -> pclass
+	input_data -> features
+	target_column -> features
+	features -> cabin
+	embarked -> embarked_category
+	embarkedencoder -> embarked_category
+}

@@ -1,39 +1,39 @@
 // Dependency Graph
 digraph {
-	input_data_train [label=input_data_train]
-	df_train [label=df_train]
-	input_data_test [label=input_data_test]
-	encoders [label=encoders]
-	index_column [label=index_column]
 	sex_encoder [label=sex_encoder]
-	combined_cabin [label=combined_cabin]
-	combined_sex [label=combined_sex]
-	categorical_columns [label=categorical_columns]
 	combined_categoricals [label=combined_categoricals]
+	categorical_columns [label=categorical_columns]
+	combined_sex [label=combined_sex]
+	df_train [label=df_train]
 	df_test [label=df_test]
-	combined_embarked [label=combined_embarked]
-	combined_cabin_t [label=combined_cabin_t]
-	embarked_encoder [label=embarked_encoder]
+	encoders [label=encoders]
+	input_data_train [label=input_data_train]
+	combined_cabin [label=combined_cabin]
+	input_data_test [label=input_data_test]
+	index_column [label=index_column]
 	cabin_encoder [label=cabin_encoder]
+	embarked_encoder [label=embarked_encoder]
+	combined_cabin_t [label=combined_cabin_t]
+	combined_embarked [label=combined_embarked]
 	df_train [label="UD: df_train"]
+	df_test [label="UD: df_test"]
 	index_column [label="UD: index_column"]
 	categorical_columns [label="UD: categorical_columns"]
-	df_test [label="UD: df_test"]
-	df_train -> input_data_train
-	index_column -> input_data_train
-	df_test -> input_data_test
-	index_column -> input_data_test
-	cabin_encoder -> encoders
-	sex_encoder -> encoders
-	embarked_encoder -> encoders
 	combined_sex -> sex_encoder
-	combined_categoricals -> combined_cabin
-	combined_categoricals -> combined_sex
 	input_data_train -> combined_categoricals
 	input_data_test -> combined_categoricals
 	categorical_columns -> combined_categoricals
-	combined_categoricals -> combined_embarked
-	combined_cabin -> combined_cabin_t
-	combined_embarked -> embarked_encoder
+	combined_categoricals -> combined_sex
+	cabin_encoder -> encoders
+	sex_encoder -> encoders
+	embarked_encoder -> encoders
+	df_train -> input_data_train
+	index_column -> input_data_train
+	combined_categoricals -> combined_cabin
+	df_test -> input_data_test
+	index_column -> input_data_test
 	combined_cabin_t -> cabin_encoder
+	combined_embarked -> embarked_encoder
+	combined_cabin -> combined_cabin_t
+	combined_categoricals -> combined_embarked
 }

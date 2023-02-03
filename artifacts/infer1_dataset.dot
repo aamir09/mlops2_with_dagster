@@ -1,0 +1,13 @@
+// Dependency Graph
+digraph {
+	X [label=X]
+	predictions [label=predictions]
+	clf [label=clf]
+	t [label=t]
+	X [label="UD: X"]
+	clf [label="UD: clf"]
+	t [label="UD: t"]
+	clf -> predictions
+	X -> predictions
+	t -> predictions
+}
