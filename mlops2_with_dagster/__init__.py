@@ -15,8 +15,11 @@ defs = Definitions(
             participants.local_target_extractor_job, 
             participants.local_train_transformer_job, 
             participants.local_test_transformer_job,
+            participants.local_dataset_transformer_job,
             participants.local_test_inference_job,
             participants.local_dataset_inference_job,
+            participants.local_inference_from_data_job,
+            participants.local_inference_from_data_job_scratch,
             participants.local_trainer_job,]
 )
 

@@ -5,39 +5,7 @@ from dagstermill import local_output_notebook_io_manager
 from dagster import file_relative_path, asset, AssetIn, Out, job, op, In, graph, AssetsDefinition, GraphIn, GraphOut, AssetKey, resource
 import pandas as pd
 
-# input data asset
 
-
-
-
-
-
-
-# get notebook names from targets
-
-# ag = dict(
-#     encoder = dict(notebook = "encoder.ipynb",
-#                    ins = dict(
-#                        df_train=AssetIn("train_dataset"), 
-#                        df_test=AssetIn("test_dataset")
-#                    )
-#     ),
-#     trainstore = dict(notebook = "transform.ipynb",
-#                       ins = {}
-#     ),
-#     teststore = dict(notebook = "transform.ipynb",
-#                      ins = {}
-#     ),
-#     training = dict(notebook = "training.ipynb",
-#                     ins = {}
-#     ),
-#     infertest = dict(notebook = "infer_from_store.ipynb",
-#                      ins = {}
-#     ),
-#     inferdata = dict(notebook = "infer_from_scratch.ipynb",
-#                      ins = {}
-#     ),
-# )
 
 notebook_assets = {}
 # for key in ag:
@@ -193,7 +161,7 @@ def encoder_graph():
     return encoders
 
 local_target_extractor_job = target_extractor_graph.to_job(
-    name="local_target_extractor_job",
+    name="target_extractor_job",
     resource_defs={
         "output_notebook_io_manager": local_output_notebook_io_manager,
         "training_data": current_training_data,
@@ -291,6 +259,14 @@ inference_op = define_dagstermill_op(
     ins={"inference_features": In(pd.DataFrame), "fit_clf": In(), "infer_type": In(str)}
 )
 
+inference_scratch_op = define_dagstermill_op(
+    name="inference_scratch_op",
+    notebook_path=file_relative_path(__file__, "../notebooks/infer_from_scratch.ipynb"),
+    output_notebook_name="output_infer_from_scratch",
+    outs={"inference_results": Out(dict)},
+    ins={"df": In(pd.DataFrame), "encoders": In(dict), "datatype": In(str), "fit_clf": In(), "infer_type": In(str)}
+)
+
 @graph(out = {'inference_results': GraphOut()},
 )
 def inference_graph():
@@ -317,6 +293,60 @@ local_dataset_inference_job = inference_graph.to_job(
         "output_notebook_io_manager": local_output_notebook_io_manager,
         "model_file": model_file, 
         "inference_features_file": dataset_features_file,
+        "infer_type": dataset_type
+    }
+)
+
+@graph(out = {'inference_results': GraphOut()}, 
+       ins = {'inference_features': GraphIn()}
+)
+def inference_from_features_graph(inference_features):
+    infer_type = read_infer_type()
+    fit_clf = read_model_file()
+    inference_results, _ = inference_op(infer_type=infer_type, inference_features = inference_features, fit_clf=fit_clf)
+    return inference_results
+
+@graph(out = {'inference_results': GraphOut()})
+def inference_from_data_graph():
+    transformed_data = transformer_graph()
+    inference_results = inference_from_features_graph(inference_features = transformed_data)
+    return inference_results
+
+
+local_inference_from_data_job = inference_from_data_graph.to_job(
+    name="inference_from_data_job",
+    resource_defs={
+        "output_notebook_io_manager": local_output_notebook_io_manager,
+        "data_file": current_dataset_data, 
+        "data_type": dataset_type,
+        "encoder_file": encoder_file,
+        "model_file": model_file, 
+        "infer_type": dataset_type
+    }
+)
+
+@graph(out = {'inference_results': GraphOut()})
+def inference_from_data_graph_scratch():
+    df = read_data_file()
+    datatype = read_data_type()
+    edict = read_encoder_file()
+    infer_type = read_infer_type()
+    fit_clf = read_model_file()
+    inference_results, _ = inference_scratch_op(datatype=datatype, df=df, 
+                                encoders=edict, infer_type=infer_type, fit_clf=fit_clf)
+    return inference_results
+
+local_inference_from_data_job_scratch_config = {
+
+}
+local_inference_from_data_job_scratch = inference_from_data_graph_scratch.to_job(
+    name="inference_from_data_job_scratch",
+    resource_defs={
+        "output_notebook_io_manager": local_output_notebook_io_manager,
+        "data_file": current_dataset_data, 
+        "data_type": dataset_type,
+        "encoder_file": encoder_file,
+        "model_file": model_file, 
         "infer_type": dataset_type
     }
 )
