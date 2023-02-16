@@ -1,15 +1,15 @@
 // Dependency Graph
 digraph {
 	df_train [label=df_train]
-	input_data_train [label=input_data_train]
-	target_column [label=target_column]
-	index_column [label=index_column]
 	target [label=target]
-	target_column [label="UD: target_column"]
+	index_column [label=index_column]
+	target_column [label=target_column]
+	input_data_train [label=input_data_train]
 	index_column [label="UD: index_column"]
+	target_column [label="UD: target_column"]
 	df_train [label="UD: df_train"]
-	df_train -> input_data_train
-	index_column -> input_data_train
 	input_data_train -> target
 	target_column -> target
+	df_train -> input_data_train
+	index_column -> input_data_train
 }

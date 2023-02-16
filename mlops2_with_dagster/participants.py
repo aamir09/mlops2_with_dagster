@@ -2,8 +2,162 @@
 from dagstermill import define_dagstermill_asset, define_dagstermill_op
 from dagstermill import local_output_notebook_io_manager
 
-from dagster import file_relative_path, asset, AssetIn, Out, job, op, In, graph, AssetsDefinition, GraphIn, GraphOut, AssetKey, resource
+from dagster import (
+    file_relative_path, 
+    asset, 
+    AssetIn, 
+    Out, 
+    job, 
+    op, 
+    In, 
+    graph, 
+    AssetsDefinition, 
+    GraphIn, 
+    GraphOut, 
+    AssetKey, 
+    resource
+)
+
 import pandas as pd
+
+
+import pandas as pd
+from upath import UPath
+
+from dagster import (
+    Field,
+    InitResourceContext,
+    InputContext,
+    OutputContext,
+    StringSource,
+    UPathIOManager,
+    io_manager,
+    input_manager,
+    InputManager,
+)
+
+
+import joblib
+import sys
+
+class FixedPathIOManager(UPathIOManager):
+    extension: str = ".joblib"
+
+    def _get_path(self, context) -> str:
+        context.log.info(context.resource_config)
+        context.log.info(type(context))
+        return UPath(f"{context.resource_config['base_path']}/{context.name}{FixedPathIOManager.extension}")
+    
+    def dump_to_path(self, context: OutputContext, obj, path: UPath):
+        context.log.info("dump")
+        context.log.info(context.resource_config)
+        with path.open("wb") as file:
+            joblib.dump(obj, file)
+
+    def load_from_path(self, context: InputContext, path: UPath) -> pd.DataFrame:
+        context.log.info("load")
+        context.log.info(context.resource_config)
+        with path.open("rb") as file:
+            return joblib.load(file)
+
+    def load_input(self, context):
+        context.log.info(">>>>>>>>>>>in load input")
+        if context.upstream_output is None: # input manager
+            path = self._get_path(context)
+        else:
+            context.log.info(">>>>>>>>>Using upstream output")
+            path = self._get_path(context.upstream_output)
+        with path.open("rb") as file:
+            return joblib.load(file)
+
+
+
+@io_manager(config_schema={"base_path": Field(str, is_required=False)})
+def local_model_fixedpath_io_manager(
+    init_context: InitResourceContext,
+) -> FixedPathIOManager:
+    assert init_context.instance is not None  # to please mypy
+    base_path = UPath(
+        init_context.resource_config.get(
+            "base_path", init_context.instance.storage_directory()
+        )
+    )
+    return FixedPathIOManager(base_path=base_path)
+
+class FixedPathInputManager(InputManager):
+    extension: str = ".joblib"
+
+    def _get_path(self, context) -> str:
+        context.log.info(context.resource_config)
+        context.log.info(type(context))
+        return UPath(f"{context.resource_config['base_path']}/{context.name}{FixedPathIOManager.extension}")
+    
+
+    def load_from_path(self, context: InputContext, path: UPath) -> pd.DataFrame:
+        context.log.info("load")
+        context.log.info(context.resource_config)
+        with path.open("rb") as file:
+            return joblib.load(file)
+
+    def load_input(self, context):
+        context.log.info("in load input")
+        if context.upstream_output is None: # input manager
+            path = self._get_path(context)
+        else:
+            path = self._get_path(context.upstream_output)
+            context.log.info("Using upstream output")
+        with path.open("rb") as file:
+            return joblib.load(file)
+
+@input_manager(config_schema={"base_path": Field(str, is_required=False)})
+def local_model_fixedpath_input_manager(
+    init_context: InitResourceContext,
+) -> FixedPathInputManager:
+    assert init_context.instance is not None  # to please mypy
+    base_path = UPath(
+        init_context.resource_config.get(
+            "base_path", init_context.instance.storage_directory()
+        )
+    )
+    return FixedPathInputManager(base_path=base_path)
+
+class PandasParquetIOManager(UPathIOManager):
+    extension: str = ".parquet"
+
+    def _get_path(self, context) -> str:
+        context.log.info(context.resource_config)
+        context.log.info(type(context))
+        return UPath(f"{context.resource_config['base_path']}/{context.name}{PandasParquetIOManager.extension}")
+
+    def dump_to_path(self, context: OutputContext, obj: pd.DataFrame, path: UPath):
+        with path.open("wb") as file:
+            obj.to_parquet(file)
+
+    def load_from_path(self, context: InputContext, path: UPath) -> pd.DataFrame:
+        with path.open("rb") as file:
+            return pd.read_parquet(file)
+
+    def load_input(self, context):
+        context.log.info("=============================in load input")
+        if context.upstream_output is None: # input manager
+            path = self._get_path(context)
+        else:
+            context.log.info("===========================upstream path")
+            path = self._get_path(context.upstream_output)
+        with path.open("rb") as file:
+            return pd.read_parquet(file)
+
+@io_manager(config_schema={"base_path": Field(str, is_required=False)})
+def local_pandas_parquet_io_manager(
+    init_context: InitResourceContext,
+) -> PandasParquetIOManager:
+    assert init_context.instance is not None  # to please mypy
+    base_path = UPath(
+        init_context.resource_config.get(
+            "base_path", init_context.instance.storage_directory()
+        )
+    )
+    return PandasParquetIOManager(base_path=base_path)
 
 
 
@@ -129,19 +283,21 @@ def read_features_file(context) -> pd.DataFrame:
 def read_model_file(context):
     return load(context.resources.model_file)['fit_clf']
 
+
 target_extractor_op = define_dagstermill_op(
     name="target_extractor_op",
     notebook_path=file_relative_path(__file__, "../notebooks/target_extractor.ipynb"),
     output_notebook_name="output_target_extractor",
-    outs={"target": Out(pd.DataFrame)},
+    required_resource_keys={"lake_io_manager"},
+    outs={"target": Out(pd.DataFrame, io_manager_key="lake_io_manager")},
     ins={"df_train": In(pd.DataFrame)}
 )
-
+#outs={"transformed_data": Out(pd.DataFrame, io_manager_key="lake_io_manager_1")},
 encoder_op = define_dagstermill_op(
     name="encoder_op",
     notebook_path=file_relative_path(__file__, "../notebooks/encoder.ipynb"),
     output_notebook_name="output_encoder",
-    outs={"encoders": Out(dict)},
+    outs={"encoders": Out(dict, io_manager_key="model_io_manager")},
     ins={"df_train": In(pd.DataFrame), "df_test": In(pd.DataFrame)}
 )
 
@@ -152,19 +308,20 @@ def target_extractor_graph():
     target, _ = target_extractor_op(df_train)
     return target
 
-@graph(out = {'encoders': GraphOut()},
+@graph(out = {'daencoders': GraphOut()},
 )
 def encoder_graph():
     df_train = read_train_data()
     df_test = read_test_data()
-    encoders, _ = encoder_op(df_test=df_test, df_train=df_train)
-    return encoders
+    daencoders, _ = encoder_op(df_test=df_test, df_train=df_train)
+    return daencoders
 
 local_target_extractor_job = target_extractor_graph.to_job(
     name="target_extractor_job",
     resource_defs={
         "output_notebook_io_manager": local_output_notebook_io_manager,
         "training_data": current_training_data,
+        "lake_io_manager": local_pandas_parquet_io_manager,
     }
 )
 
@@ -173,7 +330,8 @@ local_encoder_job = encoder_graph.to_job(
     resource_defs={
         "output_notebook_io_manager": local_output_notebook_io_manager,
         "training_data": current_training_data,
-        "testing_data": current_testing_data
+        "testing_data": current_testing_data,
+        "model_io_manager": local_model_fixedpath_io_manager,
     }
 )
 
@@ -181,8 +339,11 @@ transformer_op = define_dagstermill_op(
     name="transformer_op",
     notebook_path=file_relative_path(__file__, "../notebooks/transform.ipynb"),
     output_notebook_name="output_transform",
-    outs={"transformed_data": Out(pd.DataFrame)},
+    #outs={"transformed_data": Out(pd.DataFrame)},
+    required_resource_keys={"lake_io_manager"},
+    outs={"transformed_data": Out(pd.DataFrame, io_manager_key="lake_io_manager")},
     ins={"df": In(pd.DataFrame), "encoders": In(dict), "datatype": In(str)}
+    ##ins={"df": In(pd.DataFrame), "encoders": In(dict, input_manager_key="model_input_manager"), "datatype": In(str)}
 )
 
 @graph(out = {'transformed_data': GraphOut()},
@@ -192,6 +353,7 @@ def transformer_graph():
     datatype = read_data_type()
     edict = read_encoder_file()
     transformed_data, _ = transformer_op(datatype = datatype, df = df, encoders = edict)
+    #transformed_data, _ = transformer_op(datatype = datatype, df = df)
     return transformed_data
 
 
@@ -201,7 +363,9 @@ local_train_transformer_job = transformer_graph.to_job(
         "output_notebook_io_manager": local_output_notebook_io_manager,
         "data_file": current_training_data, 
         "data_type": train_type,
-        "encoder_file": encoder_file
+        "encoder_file": encoder_file,
+        #"model_input_manager": local_model_fixedpath_input_manager,
+        "lake_io_manager": local_pandas_parquet_io_manager,
     }
 )
 

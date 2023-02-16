@@ -6,7 +6,9 @@ from dagstermill import local_output_notebook_io_manager
 from . import participants
 
 resource_defs = dict(
-    output_notebook_io_manager = local_output_notebook_io_manager
+    output_notebook_io_manager = local_output_notebook_io_manager,
+    # lake_io_manager = participants.local_pandas_parquet_io_manager,
+    # model_io_manager = participants.local_model_fixedpath_io_manager
 )
 defs = Definitions(
     assets=participants.input_datasets + list(participants.notebook_assets.values()),
