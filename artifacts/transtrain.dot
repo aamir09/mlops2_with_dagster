@@ -1,44 +1,49 @@
 // Dependency Graph
 digraph {
-	fare [label=fare]
+	sex [label=sex]
+	df [label=df]
+	final_imputed_features [label=final_imputed_features]
 	target_column [label=target_column]
 	cabin [label=cabin]
-	df [label=df]
-	sex [label=sex]
-	age [label=age]
 	sex_category [label=sex_category]
-	sexencoder [label=sexencoder]
-	input_data [label=input_data]
-	final_imputed_features [label=final_imputed_features]
+	cabin_t [label=cabin_t]
 	sibsp [label=sibsp]
+	parch [label=parch]
+	features [label=features]
+	family [label=family]
+	sexencoder [label=sexencoder]
+	age [label=age]
+	index_column [label=index_column]
+	embarked_category [label=embarked_category]
+	cabinencoder [label=cabinencoder]
 	engineered_features [label=engineered_features]
 	pclass [label=pclass]
-	cabin_t [label=cabin_t]
-	index_column [label=index_column]
-	features [label=features]
-	embarkedencoder [label=embarkedencoder]
 	cabin_category [label=cabin_category]
-	family [label=family]
-	parch [label=parch]
-	cabinencoder [label=cabinencoder]
 	embarked [label=embarked]
-	embarked_category [label=embarked_category]
-	cabinencoder [label="UD: cabinencoder"]
-	sexencoder [label="UD: sexencoder"]
-	target_column [label="UD: target_column"]
+	embarkedencoder [label=embarkedencoder]
+	input_data [label=input_data]
+	fare [label=fare]
 	df [label="UD: df"]
-	index_column [label="UD: index_column"]
+	cabinencoder [label="UD: cabinencoder"]
 	embarkedencoder [label="UD: embarkedencoder"]
-	features -> fare
-	features -> cabin
+	target_column [label="UD: target_column"]
+	sexencoder [label="UD: sexencoder"]
+	index_column [label="UD: index_column"]
 	features -> sex
-	features -> age
+	engineered_features -> final_imputed_features
+	features -> cabin
 	sex -> sex_category
 	sexencoder -> sex_category
-	df -> input_data
-	index_column -> input_data
-	engineered_features -> final_imputed_features
+	cabin -> cabin_t
 	features -> sibsp
+	features -> parch
+	input_data -> features
+	target_column -> features
+	sibsp -> family
+	parch -> family
+	features -> age
+	embarked -> embarked_category
+	embarkedencoder -> embarked_category
 	pclass -> engineered_features
 	age -> engineered_features
 	fare -> engineered_features
@@ -47,15 +52,10 @@ digraph {
 	embarked_category -> engineered_features
 	family -> engineered_features
 	features -> pclass
-	cabin -> cabin_t
-	input_data -> features
-	target_column -> features
 	cabin_t -> cabin_category
 	cabinencoder -> cabin_category
-	sibsp -> family
-	parch -> family
-	features -> parch
 	features -> embarked
-	embarked -> embarked_category
-	embarkedencoder -> embarked_category
+	df -> input_data
+	index_column -> input_data
+	features -> fare
 }

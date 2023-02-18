@@ -160,54 +160,7 @@ def local_pandas_parquet_io_manager(
     )
     return PandasParquetIOManager(base_path=base_path)
 
-@io_manager(config_schema={"base_path": Field(str, is_required=False)})
-def local_pandas_parquet_io_manager2(
-    init_context: InitResourceContext,
-) -> PandasParquetIOManager:
-    assert init_context.instance is not None  # to please mypy
-    base_path = UPath(
-        init_context.resource_config.get(
-            "base_path", init_context.instance.storage_directory()
-        )
-    )
-    return PandasParquetIOManager(base_path=base_path)
 
-
-class PandasCSVIOManager(UPathIOManager):
-    extension: str = ".csv"
-
-    def _get_path(self, context) -> str:
-        context.log.info(context.resource_config)
-        context.log.info(type(context))
-        return UPath(f"{context.resource_config['base_path']}/{context.name}{PandasCSVIOManager.extension}")
-
-    def dump_to_path(self, context: OutputContext, obj: pd.DataFrame, path: UPath):
-        with path.open("wb") as file:
-            obj.to_csv(file)
-
-    def load_from_path(self, context: InputContext, path: UPath) -> pd.DataFrame:
-        with path.open("rb") as file:
-            return pd.read_csv(file)
-
-    def load_input(self, context):
-        if context.upstream_output is None: # input manager
-            path = self._get_path(context)
-        else:
-            path = self._get_path(context.upstream_output)
-        with path.open("rb") as file:
-            return pd.read_csv(file)
-
-@io_manager(config_schema={"base_path": Field(str, is_required=False)})
-def local_pandas_csv_io_manager(
-    init_context: InitResourceContext,
-) -> PandasCSVIOManager:
-    assert init_context.instance is not None  # to please mypy
-    base_path = UPath(
-        init_context.resource_config.get(
-            "base_path", init_context.instance.storage_directory()
-        )
-    )
-    return PandasCSVIOManager(base_path=base_path)
 
 notebook_assets = {}
 # for key in ag:
@@ -336,35 +289,25 @@ target_extractor_op = define_dagstermill_op(
     name="target_extractor_op",
     notebook_path=file_relative_path(__file__, "../notebooks/target_extractor.ipynb"),
     output_notebook_name="output_target_extractor",
-    required_resource_keys={"lake_io_manager", "raw_data_io_manager"},
+    required_resource_keys={"lake_io_manager"},
     outs={"target": Out(pd.DataFrame, io_manager_key="lake_io_manager")},
-    ins={"df_train": In(pd.DataFrame, input_manager_key="raw_data_io_manager")}
+    ins={"df_train": In(pd.DataFrame)}
 )
+#outs={"transformed_data": Out(pd.DataFrame, io_manager_key="lake_io_manager_1")},
+encoder_op = define_dagstermill_op(
+    name="encoder_op",
+    notebook_path=file_relative_path(__file__, "../notebooks/encoder.ipynb"),
+    output_notebook_name="output_encoder",
+    outs={"encoders": Out(dict, io_manager_key="model_io_manager")},
+    ins={"df_train": In(pd.DataFrame), "df_test": In(pd.DataFrame)}
+)
+
 @graph(out = {'target': GraphOut()},
 )
 def target_extractor_graph():
     df_train = read_train_data()
     target, _ = target_extractor_op(df_train)
     return target
-
-local_target_extractor_job = target_extractor_graph.to_job(
-    name="target_extractor_job",
-    resource_defs={
-        "output_notebook_io_manager": local_output_notebook_io_manager,
-        "training_data": current_training_data,
-        "lake_io_manager": local_pandas_parquet_io_manager,
-        "raw_data_io_manager": local_pandas_csv_io_manager,
-    }
-)
-
-encoder_op = define_dagstermill_op(
-    name="encoder_op",
-    notebook_path=file_relative_path(__file__, "../notebooks/encoder.ipynb"),
-    output_notebook_name="output_encoder",
-    outs={"encoders": Out(dict, io_manager_key="model_io_manager")},
-    ins={"df_train": In(pd.DataFrame, input_manager_key="raw_data_io_manager"), "df_test": In(pd.DataFrame, input_manager_key="raw_data_io_manager")}
-)
-
 
 @graph(out = {'daencoders': GraphOut()},
 )
@@ -374,6 +317,15 @@ def encoder_graph():
     daencoders, _ = encoder_op(df_test=df_test, df_train=df_train)
     return daencoders
 
+local_target_extractor_job = target_extractor_graph.to_job(
+    name="target_extractor_job",
+    resource_defs={
+        "output_notebook_io_manager": local_output_notebook_io_manager,
+        "training_data": current_training_data,
+        "lake_io_manager": local_pandas_parquet_io_manager,
+    }
+)
+
 local_encoder_job = encoder_graph.to_job(
     name="local_encoder_job",
     resource_defs={
@@ -381,7 +333,6 @@ local_encoder_job = encoder_graph.to_job(
         "training_data": current_training_data,
         "testing_data": current_testing_data,
         "model_io_manager": local_model_fixedpath_io_manager,
-        "raw_data_io_manager": local_pandas_csv_io_manager,
     }
 )
 
@@ -393,17 +344,17 @@ transformer_op = define_dagstermill_op(
     required_resource_keys={"lake_io_manager"},
     outs={"transformed_data": Out(pd.DataFrame, io_manager_key="lake_io_manager")},
     #ins={"df": In(pd.DataFrame), "encoders": In(dict), "datatype": In(str)}
-    ins={"df": In(pd.DataFrame, input_manager_key="lake_input_manager"), "encoders": In(dict, input_manager_key="model_input_manager"), "datatype": In(str)}
+    ins={"df": In(pd.DataFrame), "encoders": In(dict, input_manager_key="model_input_manager"), "datatype": In(str)}
 )
 
 @graph(out = {'transformed_data': GraphOut()},
 )
 def transformer_graph():
-    #df = read_data_file()
+    df = read_data_file()
     datatype = read_data_type()
     #edict = read_encoder_file()
     #transformed_data, _ = transformer_op(datatype = datatype, df = df, encoders = edict)
-    transformed_data, _ = transformer_op(datatype = datatype)
+    transformed_data, _ = transformer_op(datatype = datatype, df = df)
     return transformed_data
 
 
@@ -416,8 +367,6 @@ local_train_transformer_job = transformer_graph.to_job(
         "encoder_file": encoder_file,
         "model_input_manager": local_model_fixedpath_io_manager,
         "lake_io_manager": local_pandas_parquet_io_manager,
-        "lake_input_manager": local_pandas_parquet_io_manager2,
-        "raw_data_io_manager": local_pandas_csv_io_manager,
     }
 )
 
@@ -430,8 +379,6 @@ local_test_transformer_job = transformer_graph.to_job(
         "encoder_file": encoder_file,
         "model_input_manager": local_model_fixedpath_io_manager,
         "lake_io_manager": local_pandas_parquet_io_manager,
-        "lake_input_manager": local_pandas_parquet_io_manager2,
-        "raw_data_io_manager": local_pandas_csv_io_manager,
     }
 )
 
@@ -444,8 +391,6 @@ local_dataset_transformer_job = transformer_graph.to_job(
         "encoder_file": encoder_file,
         "model_input_manager": local_model_fixedpath_io_manager,
         "lake_io_manager": local_pandas_parquet_io_manager,
-        "lake_input_manager": local_pandas_parquet_io_manager2,
-        "raw_data_io_manager": local_pandas_csv_io_manager,
     }
 )
 
@@ -548,8 +493,6 @@ local_inference_from_data_job = inference_from_data_graph.to_job(
         "infer_type": dataset_type,
         "model_input_manager": local_model_fixedpath_io_manager,
         "lake_io_manager": local_pandas_parquet_io_manager,
-        "lake_input_manager": local_pandas_parquet_io_manager2,
-        "raw_data_io_manager": local_pandas_csv_io_manager,
     }
 )
 
@@ -567,7 +510,7 @@ def inference_from_data_scratch_graph():
 local_inference_from_data_job_scratch_config = {
 
 }
-local_inference_from_data_scratch_job = inference_from_data_scratch_graph.to_job(
+local_inference_from_data_scratch = inference_from_data_scratch_graph.to_job(
     name="inference_from_data_scratch_job",
     resource_defs={
         "output_notebook_io_manager": local_output_notebook_io_manager,
@@ -578,7 +521,5 @@ local_inference_from_data_scratch_job = inference_from_data_scratch_graph.to_job
         "infer_type": dataset_type,
         "model_input_manager": local_model_fixedpath_io_manager,
         "lake_io_manager": local_pandas_parquet_io_manager,
-        "lake_input_manager": local_pandas_parquet_io_manager2,
-        "raw_data_io_manager": local_pandas_csv_io_manager,
     }
 )
