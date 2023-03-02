@@ -1,41 +1,41 @@
 // Dependency Graph
 digraph {
-	target [label=target]
-	y_train [label=y_train]
-	train_predictions [label=train_predictions]
-	valid_predictions [label=valid_predictions]
-	fit_clf [label=fit_clf]
-	max_depth [label=max_depth]
 	X_valid [label=X_valid]
-	train_valid_split_func [label=train_valid_split_func]
-	validation_size_fraction [label=validation_size_fraction]
-	prefit_clf [label=prefit_clf]
 	random_state [label=random_state]
-	t [label=t]
 	X_train [label=X_train]
+	validation_size_fraction [label=validation_size_fraction]
+	t [label=t]
+	prefit_clf [label=prefit_clf]
+	train_predictions [label=train_predictions]
+	y_train [label=y_train]
 	final_feature_matrix [label=final_feature_matrix]
-	target [label="UD: target"]
-	max_depth [label="UD: max_depth"]
-	validation_size_fraction [label="UD: validation_size_fraction"]
+	valid_predictions [label=valid_predictions]
+	train_valid_split_func [label=train_valid_split_func]
+	max_depth [label=max_depth]
+	fit_clf [label=fit_clf]
+	target [label=target]
 	random_state [label="UD: random_state"]
+	validation_size_fraction [label="UD: validation_size_fraction"]
 	t [label="UD: t"]
 	final_feature_matrix [label="UD: final_feature_matrix"]
-	train_valid_split_func -> y_train
+	max_depth [label="UD: max_depth"]
+	target [label="UD: target"]
+	train_valid_split_func -> X_valid
+	train_valid_split_func -> X_train
+	random_state -> prefit_clf
+	max_depth -> prefit_clf
 	fit_clf -> train_predictions
 	X_train -> train_predictions
 	t -> train_predictions
+	train_valid_split_func -> y_train
 	fit_clf -> valid_predictions
 	X_valid -> valid_predictions
 	t -> valid_predictions
-	prefit_clf -> fit_clf
-	X_train -> fit_clf
-	y_train -> fit_clf
-	train_valid_split_func -> X_valid
 	final_feature_matrix -> train_valid_split_func
 	target -> train_valid_split_func
 	validation_size_fraction -> train_valid_split_func
 	random_state -> train_valid_split_func
-	random_state -> prefit_clf
-	max_depth -> prefit_clf
-	train_valid_split_func -> X_train
+	prefit_clf -> fit_clf
+	X_train -> fit_clf
+	y_train -> fit_clf
 }

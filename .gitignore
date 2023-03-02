@@ -135,3 +135,5 @@ results/*.joblib
 
 # dagster
 tmp*
+mlops2_with_dagster/tmp*
+warehouse/
