@@ -137,3 +137,4 @@ results/*.joblib
 tmp*
 mlops2_with_dagster/tmp*
 warehouse/
+incoming/
