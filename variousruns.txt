@@ -1,0 +1,98 @@
+# training from data job
+
+ops:
+  transformer_op:
+    config:
+      datatype: train
+resources:
+  raw_data_input_manager_test:
+    config:
+      base_path: data
+      file_name: test.csv
+  raw_data_input_manager_train:
+    config:
+      base_path: data
+      file_name: train.csv
+  raw_data_input_manager:
+    config:
+      base_path: data
+      file_name: train.csv
+  lake_io_manager_target:
+    config:
+      base_path: warehouse
+      file_name: target_long.parquet
+  model_io_manager_encoder:
+    config:
+      base_path: warehouse
+      file_name: encoders_long.joblib
+  lake_input_manager_features:
+    config:
+      base_path: warehouse
+      # file_name: featurestore_train_long.parquet
+  lake_input_manager_target:
+    config:
+      base_path: warehouse
+      # file_name: target_long.parquet
+  lake_io_manager:
+    config:
+      base_path: warehouse
+      file_name: featurestore_train_long.parquet
+  model_input_manager:
+    config:
+      base_path: warehouse
+      # file_name: encoders_long.joblib
+  model_io_manager_clf:
+    config:
+      base_path: warehouse
+      file_name: rf_long.joblib
+
+
+# "output_notebook_io_manager": local_output_notebook_io_manager,
+# "lake_io_manager_target": local_pandas_parquet_io_manager, # target
+# "raw_data_input_manager_train": local_pandas_csv_io_manager, # target, encoder
+# "model_io_manager_encoder": local_model_fixedpath_io_manager, # encoder
+# "raw_data_input_manager_test": local_pandas_csv_io_manager, # encoder
+# "model_input_manager": local_model_fixedpath_io_manager, # transformer
+# "raw_data_input_manager": local_pandas_csv_io_manager, # transformer
+# "lake_io_manager": local_pandas_parquet_io_manager, # transformer
+# "lake_input_manager_features": local_pandas_parquet_io_manager, # trainer
+# "lake_input_manager_target": local_pandas_parquet_io_manager, # trainer
+# "model_io_manager_clf": local_model_fixedpath_io_manager, # trainer
+
+## inference from data job
+
+ops:
+  inference_from_features_graph:
+    ops:
+      inference_store_op:
+        config:
+          infertype: dataset
+  transformer_graph:
+    ops:
+      transformer_op:
+        config:
+          datatype: dataset
+resources:
+  lake_input_manager_features:
+    config:
+      base_path: warehouse
+  lake_io_manager:
+    config:
+      base_path: warehouse
+      file_name: featurestore_datagraph.parquet
+  model_input_manager:
+    config:
+      base_path: warehouse
+      file_name: encoders.joblib
+  model_input_manager_clf:
+    config:
+      base_path: warehouse
+      file_name: rf.joblib
+  model_io_manager:
+    config:
+      base_path: results
+      file_name: infer_graph_dataset.joblib
+  raw_data_input_manager:
+    config:
+      base_path: data
+      file_name: test.csv
