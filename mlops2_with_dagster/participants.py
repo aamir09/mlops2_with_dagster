@@ -117,7 +117,6 @@ class PandasParquetIOManager(UPathIOManager):
 
     def dump_to_path(self, context: OutputContext, obj: pd.DataFrame, path: UPath):
         context.log.info("dump in pandasparquet")
-        context.log.info(context.asset_key)
         with path.open("wb") as file:
             obj.to_parquet(file)
 
