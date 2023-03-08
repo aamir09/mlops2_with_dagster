@@ -65,9 +65,18 @@ class FixedPathIOManager(UPathIOManager):
 
     def load_input(self, context):
         context.log.info(f"FPIOxxxxxxxxxxxxx\n {context} AND {context.upstream_output}")
-        # remove because dagstermill processes dont seem to have a context
-        # context.log.info(f"{context.metadata}<>{context.name}<>{context.resource_config}")
-        if context.upstream_output is None and 'file_name' in context.resource_config: # input manager
+        source_asset = False
+        asset_mode = False
+        if context.has_asset_key: # this io manager is being used in an asset op
+            asset_mode = True
+            context.log.info("asset_mode=True")
+            context.log.info(context.upstream_output.asset_key.path[0])
+            if context.upstream_output.asset_key.path[0][0:7]=='source_':
+                source_asset = True
+        if (source_asset and asset_mode) or (context.upstream_output is None and 'file_name' in context.resource_config):   # input manager
+            # remove because dagstermill processes dont seem to have a context
+            # context.log.info(f"{context.metadata}<>{context.name}<>{context.resource_config}")
+            # if context.upstream_output is None and 'file_name' in context.resource_config: # input manager
             context.log.info("xxxxxxxxxxx Input Manager Path")
             path = self._get_path(context)
         else:
@@ -108,6 +117,7 @@ class PandasParquetIOManager(UPathIOManager):
 
     def dump_to_path(self, context: OutputContext, obj: pd.DataFrame, path: UPath):
         context.log.info("dump in pandasparquet")
+        context.log.info(context.asset_key)
         with path.open("wb") as file:
             obj.to_parquet(file)
 
@@ -118,13 +128,25 @@ class PandasParquetIOManager(UPathIOManager):
 
     def load_input(self, context):
         context.log.info(f"PPxxxxxxxxxxxxx\n {context} AND {context.upstream_output}")
-        # remove because dagstermill processes dont seem to have a context
-        # context.log.info(f"{context.metadata}<>{context.name}<>{context.resource_config}")
-        if context.upstream_output is None and 'file_name' in context.resource_config: # input manager
+        source_asset = False
+        asset_mode = False
+        if context.has_asset_key: # this io manager is being used in an asset op
+            asset_mode = True
+            context.log.info("asset_mode=True")
+            context.log.info(context.asset_key)
+            context.log.info(context.upstream_output.asset_key)
+            context.log.info(context.upstream_output.asset_key.path[0])
+            if context.upstream_output.asset_key.path[0][0:7]=='source_':
+                source_asset = True
+        if (source_asset and asset_mode) or (context.upstream_output is None and 'file_name' in context.resource_config):   # input manager
+            #if context.upstream_output is None and 'file_name' in context.resource_config: # input manager
             context.log.info("xxxxxxxxxxx Input Manager Path")
             path = self._get_path(context)
         else:
             context.log.info("xxxxxxxxxxx Upstrem Output Path")
+            bla = context.upstream_output
+            context.log.info(dir(bla))
+            context.log.info(bla.asset_info)
             path = self._get_path(context.upstream_output)
         with path.open("rb") as file:
             return pd.read_parquet(file)
@@ -156,9 +178,10 @@ class PandasCSVIOManager(UPathIOManager):
         if 'file_name' in context.resource_config: # input manager and output with filename
             return UPath(f"{context.resource_config['base_path']}/{context.resource_config['file_name']}")
         else:
-            return UPath(f"{context.resource_config['base_path']}/{context.name}{PandasCSVIOManager.extension}")
+            return UPath(f"{context.resource_config['base_path']}/{context.name}{type(self).extension}")
 
     def dump_to_path(self, context: OutputContext, obj: pd.DataFrame, path: UPath):
+        context.log.info(context.asset_key)
         with path.open("wb") as file:
             obj.to_csv(file)
 
@@ -168,13 +191,29 @@ class PandasCSVIOManager(UPathIOManager):
 
     def load_input(self, context):
         context.log.info(f"CSVxxxxxxxxxxxxx\n {context} AND {context.upstream_output}")
+        context.log.info(dir(InitResourceContext))
         # remove because dagstermill processes dont seem to have a context
         # context.log.info(f"{context.metadata}<>{context.name}<>{context.resource_config}")
-        if context.upstream_output is None and 'file_name' in context.resource_config: # input manager
-            context.log.info("xxxxxxxxxxx Input Manager Path")
+        source_asset = False
+        asset_mode = False
+        if context.has_asset_key: # this io manager is being used in an asset op
+            asset_mode = True
+            context.log.info("asset_mode=True")
+            context.log.info(context.asset_key)
+            context.log.info(context.upstream_output.asset_key)
+            context.log.info(context.upstream_output.asset_key.path[0])
+            if context.upstream_output.asset_key.path[0][0:7]=='source_':
+                source_asset = True
+        #if (source_asset and asset_mode) or (context.upstream_output is None and 'file_name' in context.resource_config): # input manager
+        if (context.upstream_output is None and 'file_name' in context.resource_config): # input manager
+            context.log.info(f"xxxxxxxxxxx Input Manager Path {asset_mode}")
             path = self._get_path(context)
         else:
-            context.log.info("xxxxxxxxxxx Upstrem Output Path")
+            context.log.info("xxxxxxxxxxx Upstrem Output Path {asset_mode}")
+            bla = context.upstream_output
+            context.log.info(dir(bla))
+            if asset_mode:
+                context.log.info(f"Asset keys {context.asset_key} Upstream {bla.asset_key}")
             path = self._get_path(context.upstream_output)
         #path = self._get_path(context)
         with path.open("rb") as file:
@@ -198,135 +237,123 @@ def local_pandas_csv_io_manager(
     )
     return PandasCSVIOManager(base_path=base_path)
 
-notebook_assets = {}
-# for key in ag:
-#     notebook_assets[key] = define_dagstermill_asset(
-#         name=key, 
-#         notebook_path=file_relative_path(__file__, f"../notebooks/{ag[key]['notebook']}"),
-#         group_name="mlops2",
-#         ins=ag[key]['ins']
-#     )
+from mlops2_with_dagster.ml_hamilton import (
+    encode, 
+    target_extract, 
+    transform, 
+    training, 
+    infer_from_store,
+    infer_from_scratch
+)
+from dagster import SourceAsset, multi_asset, AssetOut, define_asset_job
 
 
-@asset
-def train_dataset():
-    train_data : str = "data/train.csv"
-    return read_data(train_data)
-
-@asset
-def test_dataset():
-    test_data : str = "data/test.csv"
-    return read_data(test_data)
-
-input_datasets = [train_dataset, test_dataset]
-
-@resource
-def current_training_data(init_context):
-    return "data/train.csv"
-
-@resource
-def train_type(init_context):
-    return "train"
-
-@resource
-def test_type(init_context):
-    return "test"
-
-@resource
-def dataset_type(init_context):
-    return "dataset"
-
-@resource
-def current_testing_data(init_context):
-    return "data/test.csv"
-
-@resource
-def current_dataset_data(init_context):
-    return "data/test.csv"
-
-from joblib import load
-@resource
-def encoder_file(init_context):
-    return "intermediate_data/encoder.joblib"
-
-@resource
-def target_file(init_context):
-    return "intermediate_data/target.pkl"
-
-@resource
-def train_features_file(init_context):
-    return "intermediate_data/featurestore_train.pkl"
-
-@resource
-def test_features_file(init_context):
-    return "intermediate_data/featurestore_test.pkl"
-
-@resource
-def dataset_features_file(init_context):
-    return "intermediate_data/featurestore_test.pkl"
-
-@resource
-def model_file(init_context):
-    return "models/rf.joblib"
-
-def read_data(data: str):
-    return pd.read_csv(data)
-
-def read_pickle(data: str):
-    return pd.read_pickle(data)
+train_data = SourceAsset(key="source_train_dataset", io_manager_key="raw_data_io_manager_train")
+test_data = SourceAsset(key="source_test_dataset", io_manager_key="raw_data_io_manager_test")
+inference_data = SourceAsset(key="source_inference_dataset", io_manager_key="raw_data_io_manager")
 
 
-#### OPS ####
+@asset(io_manager_key="model_io_manager_encoders")
+def encoders(context, source_train_dataset: pd.DataFrame, source_test_dataset: pd.DataFrame)->dict:
+    return encode(source_train_dataset, source_test_dataset)
 
-@op(required_resource_keys={"data_file"})
-def read_data_file(context):
-    return read_data(context.resources.data_file)
+# resources:
+#   lake_io_manager_target:
+#     config:
+#       base_path: warehouse
+#       file_name: target_asset.parquet
+#   raw_data_io_manager_train:
+#     config:
+#       base_path: data
+#       file_name: train.csv
+@asset(io_manager_key="lake_io_manager_target")
+def target(context, source_train_dataset: pd.DataFrame)->pd.DataFrame:
+    return target_extract(source_train_dataset)
 
-@op(required_resource_keys={"data_type"})
-def read_data_type(context):
-    return context.resources.data_type
+@asset(io_manager_key="lake_io_manager_target_downstream")
+def target_downstream(context, target: pd.DataFrame)->pd.DataFrame:
+    return target.copy()
 
-@op(required_resource_keys={"infer_type"})
-def read_infer_type(context):
-    return context.resources.infer_type
+# todo: how to do this separately for training: define a separate op?
+@asset(io_manager_key="lake_io_manager")
+def dataset_featurestore(context, source_inference_dataset: pd.DataFrame, encoders: dict)->pd.DataFrame:
+    # TODO/DONE: need datatype here as a config on the context
+    return transform(inference_dataset, encoders, context.op_config['datatype'])
 
-@op(required_resource_keys={"training_data"})
-def read_train_data(context) -> pd.DataFrame:
-    return read_data(context.resources.training_data)
+@asset(io_manager_key="lake_io_manager_train")
+def train_featurestore(context, source_train_dataset: pd.DataFrame, encoders: dict)->pd.DataFrame:
+    return transform(train_dataset, encoders, "train")
 
-@op(required_resource_keys={"testing_data"})
-def read_test_data(context) -> pd.DataFrame:
-    return read_data(context.resources.testing_data)
+@asset(io_manager_key="lake_io_manager_test")
+def test_featurestore(context, source_test_dataset: pd.DataFrame, encoders: dict)->pd.DataFrame:
+    return transform(train_dataset, encoders, "test")
+
+@asset(io_manager_key="model_io_manager")
+def trained(context, train_featurestore: pd.DataFrame, target: pd.DataFrame):
+    rdfict = training(train_featurestore, target)
+    return rfdict
 
 
-@op(required_resource_keys={"encoder_file"})
-def read_encoder_file(context) -> dict:
-    edict = load(context.resources.encoder_file)
-    return edict
+@asset(io_manager_key="lake_io_manager_predictions")
+def dataset_predictions_from_store(context, dataset_featurestore: pd.DataFrame, trained: dict)->pd.DataFrame:
+    # TODO/DONE: need infertype here as a config on the context
+    fit_clf = trained['fit_clf']
+    return infer_from_store(dataset_featurestore, fit_clf, context.op_config['infertype'])
 
-@op(required_resource_keys={"target_file"})
-def read_target_file(context) -> pd.DataFrame:
-    return read_pickle(context.resources.target_file)
+@asset(io_manager_key="lake_io_manager_predictions_test")
+def test_predictions(context, test_featurestore: pd.DataFrame, trained: dict)->pd.DataFrame:
+    fit_clf = trained['fit_clf']
+    return infer_from_store(dataset_featurestore, fit_clf, "test")
 
-@op(required_resource_keys={"train_features_file"})
-def read_train_features_file(context) -> pd.DataFrame:
-    return read_pickle(context.resources.train_features_file)
+@asset(io_manager_key="lake_io_manager_predictions")
+def dataset_predictions_from_scratch(context, dataset_featurestore: pd.DataFrame,
+                                     encoders: dict,
+                                     trained: dict)->pd.DataFrame:
+    # TODO/DONE: need datatype and infertype here as a config on the context
+    fit_clf = trained['fit_clf']
+    return infer_from_scratch(dataset_featurestore, 
+                            encoders,
+                            context.op_config['datatype'], # datatype
+                            context.op_config['infertype'], # infertype
+                            fit_clf)
 
-@op(required_resource_keys={"inference_features_file"})
-def read_features_file(context) -> pd.DataFrame:
-    return read_pickle(context.resources.inference_features_file)
 
-@op(required_resource_keys={"model_file"})
-def read_model_file(context):
-    return load(context.resources.model_file)['fit_clf']
+training_only_asset_job = define_asset_job(name="training_only_asset_job", selection=['encoders', 'target', 'train_featurestore', 'trained'])
+training_asset_job = define_asset_job(name="training_asset_job", selection=['trained', 'test_predictions'])
+target_asset_job = define_asset_job(name="target_asset_job", selection=['target'])
+target_asset_job_downstream = define_asset_job(name="target_asset_job_downstream", selection=['target', 'target_downstream'])
+inference_as_pipe_asset_job = define_asset_job(name="inference_as_pipe_asset_job", selection=['encoders', 'dataset_featurestore', 'trained', 'dataset_predictions_from_store'])
+
+
+input_datasets = [train_data, test_data, inference_data]
+pipeline_assets = [encoders, target, target_downstream, trained, 
+                   dataset_featurestore, train_featurestore, test_featurestore, test_predictions,
+                   dataset_predictions_from_scratch, dataset_predictions_from_store]
+asset_jobs = [training_only_asset_job, training_asset_job, target_asset_job, target_asset_job_downstream, inference_as_pipe_asset_job]
+
+asset_resource_defs = dict(
+    output_notebook_io_manager = local_output_notebook_io_manager,
+    lake_io_manager = local_pandas_parquet_io_manager,
+    lake_io_manager_target = local_pandas_parquet_io_manager,
+    lake_io_manager_target_downstream = local_pandas_parquet_io_manager,
+    lake_io_manager_train = local_pandas_parquet_io_manager,
+    lake_io_manager_test = local_pandas_parquet_io_manager,
+    lake_io_manager_predictions_test = local_pandas_parquet_io_manager,
+    lake_io_manager_predictions = local_pandas_parquet_io_manager,
+    model_io_manager = local_model_fixedpath_io_manager,
+    model_io_manager_encoders = local_model_fixedpath_io_manager,
+    raw_data_io_manager = local_pandas_csv_io_manager,
+    raw_data_io_manager_train = local_pandas_csv_io_manager,
+    raw_data_io_manager_test = local_pandas_csv_io_manager,
+)
 
 
 target_extractor_op = define_dagstermill_op(
     name="target_extractor_op",
     notebook_path=file_relative_path(__file__, "../notebooks/target_extractor.ipynb"),
     output_notebook_name="output_target_extractor",
-    outs={"target": Out(pd.DataFrame, io_manager_key="lake_io_manager")},
-    ins={"df_train": In(pd.DataFrame, input_manager_key="raw_data_input_manager")}
+    outs={"target": Out(pd.DataFrame, io_manager_key="lake_io_manager_target")},
+    ins={"df_train": In(pd.DataFrame, input_manager_key="raw_data_input_manager_train")}
 )
 # @graph(
 #     out = {'target': GraphOut("The extracted Target Column")},
@@ -345,8 +372,8 @@ local_target_extractor_job = target_extractor_graph.to_job(
     resource_defs={
         "output_notebook_io_manager": local_output_notebook_io_manager,
         # "training_data": current_training_data,
-        "lake_io_manager": local_pandas_parquet_io_manager,
-        "raw_data_input_manager": local_pandas_csv_io_manager,
+        "lake_io_manager_target": local_pandas_parquet_io_manager,
+        "raw_data_input_manager_train": local_pandas_csv_io_manager,
     }
 )
 
@@ -355,7 +382,7 @@ encoder_op = define_dagstermill_op(
     name="encoder_op",
     notebook_path=file_relative_path(__file__, "../notebooks/encoder.ipynb"),
     output_notebook_name="output_encoder",
-    outs={"encoders": Out(dict, io_manager_key="model_io_manager")},
+    outs={"encoders": Out(dict, io_manager_key="model_io_manager_encoder")},
     ins={"df_train": In(pd.DataFrame, input_manager_key="raw_data_input_manager_train"), 
          "df_test": In(pd.DataFrame, input_manager_key="raw_data_input_manager_test")
     }
@@ -376,7 +403,7 @@ local_encoder_job = encoder_graph.to_job(
         "output_notebook_io_manager": local_output_notebook_io_manager,
         # "training_data": current_training_data,
         # "testing_data": current_testing_data,
-        "model_io_manager": local_model_fixedpath_io_manager,
+        "model_io_manager_encoder": local_model_fixedpath_io_manager,
         "raw_data_input_manager_train": local_pandas_csv_io_manager,
         "raw_data_input_manager_test": local_pandas_csv_io_manager,
     }
@@ -437,7 +464,7 @@ trainer_op = define_dagstermill_op(
     name="trainer_op",
     notebook_path=file_relative_path(__file__, "../notebooks/training.ipynb"),
     output_notebook_name="output_training",
-    outs={"training_outputs": Out(dict, io_manager_key="model_io_manager")},
+    outs={"training_outputs": Out(dict, io_manager_key="model_io_manager_clf")},
     ins={"train_features": In(pd.DataFrame, input_manager_key="lake_input_manager_features"), 
          "target": In(pd.DataFrame, input_manager_key="lake_input_manager_target")}
 )
@@ -445,7 +472,6 @@ trainer_op = define_dagstermill_op(
 @graph(out = {'output_training': GraphOut()},
 )
 def trainer_graph():
-
     training_outputs, _ = trainer_op()
     return training_outputs
 
@@ -456,7 +482,34 @@ local_trainer_job = trainer_graph.to_job(
         "output_notebook_io_manager": local_output_notebook_io_manager,
         "lake_input_manager_target": local_pandas_parquet_io_manager,
         "lake_input_manager_features": local_pandas_parquet_io_manager,
-        "model_io_manager": local_model_fixedpath_io_manager
+        "model_io_manager_clf": local_model_fixedpath_io_manager
+    }
+)
+
+
+@graph(out = {'training_outputs': GraphOut()})
+def training_from_data_graph():
+    target, _ = target_extractor_op()
+    encoders, _ = encoder_op()
+    transformed_data, _ = transformer_op(encoders=encoders)
+    training_outputs = trainer_op(train_features = transformed_data, target=target)
+    return training_outputs
+
+# config has datatype and infertype
+local_training_from_data_job = training_from_data_graph.to_job(
+    name="training_from_data_job",
+    resource_defs={
+        "output_notebook_io_manager": local_output_notebook_io_manager,
+        "lake_io_manager_target": local_pandas_parquet_io_manager, # target
+        "raw_data_input_manager_train": local_pandas_csv_io_manager, # target
+        "model_io_manager_encoder": local_model_fixedpath_io_manager, # encoder
+        "raw_data_input_manager_test": local_pandas_csv_io_manager, # encoder
+        "model_input_manager": local_model_fixedpath_io_manager, # transformer
+        "raw_data_input_manager": local_pandas_csv_io_manager, # transformer
+        "lake_io_manager": local_pandas_parquet_io_manager, # transformer
+        "lake_input_manager_features": local_pandas_parquet_io_manager, # trainer
+        "lake_input_manager_target": local_pandas_parquet_io_manager, # trainer
+        "model_io_manager_clf": local_model_fixedpath_io_manager, # trainer
     }
 )
 
@@ -571,6 +624,17 @@ local_inference_from_data_job = inference_from_data_graph.to_job(
     }
 )
 
+op_based_jobs = [local_encoder_job, 
+            local_target_extractor_job, 
+            local_train_transformer_job, 
+            local_test_transformer_job,
+            local_dataset_transformer_job,
+            local_test_inference_job,
+            local_dataset_inference_job,
+            local_inference_from_data_job, # makes features, then runs inference: two connected graphs
+            local_inference_from_data_scratch_job, # all the code is in one notebook
+            local_trainer_job,
+            local_training_from_data_job]
 # now let us define a sensor to connect two jobs
 
 from dagster import (
@@ -602,16 +666,15 @@ def do_inference_from_featurestore_sensor(context):
 
 import os
 
-MONITORED_FOLDER = "incoming"
-NEW_DATA = "dataset.csv"
+MONITORED_FOLDER_INFERENCE = "incoming/inference"
 @sensor(job=local_dataset_transformer_job)
 def new_data_sensor(context):
     last_mtime = float(context.cursor) if context.cursor else 0
     max_mtime = last_mtime
-    for filename in os.listdir(MONITORED_FOLDER):
+    for filename in os.listdir(MONITORED_FOLDER_INFERENCE):
         #filename = NEW_DATA
         fileroot = filename.split('.')[0] # split bla.csv
-        filepath = os.path.join(MONITORED_FOLDER, filename)
+        filepath = os.path.join(MONITORED_FOLDER_INFERENCE, filename)
         if os.path.isfile(filepath):
             fstats = os.stat(filepath)
             file_mtime = fstats.st_mtime
@@ -625,8 +688,48 @@ def new_data_sensor(context):
                                                 'file_name': f"featurestore_{fileroot}.parquet"}},
                                     'model_input_manager': {'config': {'base_path': 'warehouse',
                                                     'file_name': 'encoders.joblib'}},
-                                    'raw_data_input_manager': {'config': {'base_path': 'incoming',
+                                    'raw_data_input_manager': {'config': {'base_path': 'incoming/inference',
                                                         'file_name': filename}}}
+                    },
+                )
+            max_mtime = max(max_mtime, file_mtime)
+    context.update_cursor(str(max_mtime))
+
+MONITORED_FOLDER_TRAINING = "incoming/training"
+@sensor(job=local_training_from_data_job)
+def new_training_sensor(context):
+    last_mtime = float(context.cursor) if context.cursor else 0
+    max_mtime = last_mtime
+    for filename in os.listdir(MONITORED_FOLDER_TRAINING):
+        #filename = NEW_DATA
+        fileroot = filename.split('.')[0] # split bla.csv
+        filepath = os.path.join(MONITORED_FOLDER_TRAINING, filename)
+        if os.path.isfile(filepath):
+            fstats = os.stat(filepath)
+            file_mtime = fstats.st_mtime
+            if file_mtime >= last_mtime:
+                yield RunRequest(
+                    run_key=f"{filename}:{str(file_mtime)}",
+                    run_config={
+                        'ops': {'transformer_op': {'config': {'datatype': 'train'}}},
+                        'resources': {'lake_input_manager_features': {'config': {'base_path': 'warehouse'}},
+                                        'lake_input_manager_target': {'config': {'base_path': 'warehouse'}},
+                                        'lake_io_manager': {'config': {'base_path': 'warehouse',
+                                                                        'file_name': 'featurestore_train.parquet'}},
+                                        'lake_io_manager_target': {'config': {'base_path': 'warehouse',
+                                                                                'file_name': 'target.parquet'}},
+                                        'model_input_manager': {'config': {'base_path': 'warehouse'}},
+                                        'model_io_manager_clf': {'config': {'base_path': 'warehouse',
+                                                                            'file_name': 'rf.joblib'}},
+                                        'model_io_manager_encoder': {'config': {'base_path': 'warehouse',
+                                                                                'file_name': 'encoders.joblib'}},
+                                        'raw_data_input_manager': {'config': {'base_path': 'incoming/training',
+                                                                                'file_name': filename}},
+                                        'raw_data_input_manager_test': {'config': {'base_path': 'data',
+                                                                                    'file_name': 'test.csv'}},
+                                        'raw_data_input_manager_train': {'config': {'base_path': 'incoming/training',
+                                                                                    'file_name': filename}}
+                                    }
                     },
                 )
             max_mtime = max(max_mtime, file_mtime)
