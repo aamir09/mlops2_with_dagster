@@ -349,7 +349,7 @@ asset_resource_defs = dict(
 
 target_extractor_op = define_dagstermill_op(
     name="target_extractor_op",
-    notebook_path=file_relative_path(__file__, "../notebooks/target_extractor.ipynb"),
+    notebook_path=file_relative_path(__file__, "../notebooks/target_extractor_modified.ipynb"),
     output_notebook_name="output_target_extractor",
     outs={"target": Out(pd.DataFrame, io_manager_key="lake_io_manager_target")},
     ins={"df_train": In(pd.DataFrame, input_manager_key="raw_data_input_manager_train")}
@@ -379,7 +379,7 @@ local_target_extractor_job = target_extractor_graph.to_job(
 
 encoder_op = define_dagstermill_op(
     name="encoder_op",
-    notebook_path=file_relative_path(__file__, "../notebooks/encoder.ipynb"),
+    notebook_path=file_relative_path(__file__, "../notebooks/encoder_modified.ipynb"),
     output_notebook_name="output_encoder",
     outs={"encoders": Out(dict, io_manager_key="model_io_manager_encoder")},
     ins={"df_train": In(pd.DataFrame, input_manager_key="raw_data_input_manager_train"), 
@@ -410,7 +410,7 @@ local_encoder_job = encoder_graph.to_job(
 
 transformer_op = define_dagstermill_op(
     name="transformer_op",
-    notebook_path=file_relative_path(__file__, "../notebooks/transform.ipynb"),
+    notebook_path=file_relative_path(__file__, "../notebooks/transform_modified.ipynb"),
     output_notebook_name="output_transform",
     outs={"transformed_data": Out(pd.DataFrame, io_manager_key="lake_io_manager")},
     #ins={"df": In(pd.DataFrame), "encoders": In(dict), "datatype": In(str)}
@@ -461,7 +461,7 @@ local_dataset_transformer_job = transformer_graph.to_job(
 
 trainer_op = define_dagstermill_op(
     name="trainer_op",
-    notebook_path=file_relative_path(__file__, "../notebooks/training.ipynb"),
+    notebook_path=file_relative_path(__file__, "../notebooks/training_modified.ipynb"),
     output_notebook_name="output_training",
     outs={"training_outputs": Out(dict, io_manager_key="model_io_manager_clf")},
     ins={"train_features": In(pd.DataFrame, input_manager_key="lake_input_manager_features"), 
