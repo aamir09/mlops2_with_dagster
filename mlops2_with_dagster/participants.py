@@ -559,7 +559,7 @@ local_dataset_inference_job = inference_graph.to_job(
 
 inference_scratch_op = define_dagstermill_op(
     name="inference_scratch_op",
-    notebook_path=file_relative_path(__file__, "../notebooks/infer_from_scratch.ipynb"),
+    notebook_path=file_relative_path(__file__, "../notebooks/infer_from_scratch_modified.ipynb"),
     output_notebook_name="output_infer_from_scratch",
     outs={"inference_results": Out(dict, io_manager_key="model_io_manager")},
     ins={"df": In(pd.DataFrame, input_manager_key="raw_data_input_manager"), 
