@@ -462,7 +462,7 @@ local_dataset_transformer_job = transformer_graph.to_job(
 trainer_op = define_dagstermill_op(
     name="trainer_op",
     notebook_path=file_relative_path(__file__, "../notebooks/training_modified.ipynb"),
-    output_notebook_name="output_training",
+    output_notebook_name="output_training_modified",
     outs={"training_outputs": Out(dict, io_manager_key="model_io_manager_clf")},
     ins={"train_features": In(pd.DataFrame, input_manager_key="lake_input_manager_features"), 
          "target": In(pd.DataFrame, input_manager_key="lake_input_manager_target")}
