@@ -1,0 +1,50 @@
+resources:
+  lake_io_manager_target:
+    config:
+      base_path: /home/jupyter-aamir09/mlops2_with_dagster/warehouse/
+      file_name: train_target.parquet
+  output_notebook_io_manager:
+    config:
+      asset_key_prefix: []
+  raw_data_input_manager_train:
+    config:
+      base_path: /home/jupyter-aamir09/mlops2_with_dagster/data/
+      file_name: train.csv
+
+  lake_input_manager_features:
+    config:
+      base_path: /home/jupyter-aamir09/mlops2_with_dagster/warehouse
+      file_name: train_transformed.pq
+  lake_input_manager_target:
+    config:
+      base_path: /home/jupyter-aamir09/mlops2_with_dagster/warehouse
+      file_name: train_target.parquet
+  model_io_manager_clf:
+    config:
+      base_path: /home/jupyter-aamir09/mlops2_with_dagster/warehouse
+      file_name: output.parquet
+
+  lake_io_manager:
+    config:
+      base_path: /home/jupyter-aamir09/mlops2_with_dagster/warehouse/
+      file_name: train_transformed.pq
+  model_input_manager:
+    config:
+      base_path: /home/jupyter-aamir09/mlops2_with_dagster/warehouse/
+      file_name: encoders.joblib
+  raw_data_input_manager:
+    config:
+      base_path: /home/jupyter-aamir09/mlops2_with_dagster/data/
+      file_name: train.csv
+
+  raw_data_input_manager_test:
+    config:
+      base_path: /home/jupyter-aamir09/mlops2_with_dagster/data/
+      file_name: test.csv
+
+  model_io_manager_encoder:
+    config: 
+      base_path: /home/jupyter-aamir09/mlops2_with_dagster/warehouse/
+      file_name: encoders.joblib
+
+      

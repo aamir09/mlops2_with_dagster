@@ -15,7 +15,10 @@ from dagster import (
     GraphIn, 
     GraphOut, 
     AssetKey, 
-    resource
+    resource,
+    sensor, 
+    RunRequest, 
+    RunConfig
 )
 
 import pandas as pd
@@ -39,6 +42,9 @@ from dagster import (
 
 import joblib
 import sys
+
+INCOMING_DATA_DIRECTORY = '/home/jupyter-aamir09/mlops2_with_dagster/data/incoming/'
+
 
 class FixedPathIOManager(UPathIOManager):
     extension: str = ".joblib"
@@ -512,6 +518,8 @@ local_training_from_data_job = training_from_data_graph.to_job(
     }
 )
 
+ 
+
 inference_store_op = define_dagstermill_op(
     name="inference_store_op",
     notebook_path=file_relative_path(__file__, "../notebooks/infer_from_store.ipynb"),
@@ -525,7 +533,50 @@ inference_store_op = define_dagstermill_op(
     }
 )
 
+@sensor(job=local_training_from_data_job)
+def train_on_new_data_sensor(context):
+    last_mtime = float(context.cursor) if context.cursor else 0
 
+    max_mtime = last_mtime
+    for filename in os.listdir(INCOMING_DATA_DIRECTORY):
+        filepath = os.path.join(INCOMING_DATA_DIRECTORY, filename)
+        if os.path.isfile(filepath):
+            fstats = os.stat(filepath)
+            file_mtime = fstats.st_mtime
+            if file_mtime <= last_mtime:
+                continue
+
+            # the run key should include mtime if we want to kick off new runs based on file modifications
+            run_key = f"{filename}:{file_mtime}"
+            run_config = {
+                "ops": {"transformer_op": {"config": {"datatype": "xxxxx"}}},
+                'resources': {'lake_io_manager_target': {'config': {'base_path': '/home/jupyter-aamir09/mlops2_with_dagster/warehouse/',
+                    'file_name': 'train_target.parquet'}},
+                'output_notebook_io_manager': {'config': {'asset_key_prefix': []}},
+                'raw_data_input_manager_train': {'config': {'base_path': '/home/jupyter-aamir09/mlops2_with_dagster/data/incoming',
+                    'file_name': f'{filename}'}},
+                'lake_input_manager_features': {'config': {'base_path': '/home/jupyter-aamir09/mlops2_with_dagster/warehouse',
+                    'file_name': 'train_transformed.pq'}},
+                'lake_input_manager_target': {'config': {'base_path': '/home/jupyter-aamir09/mlops2_with_dagster/warehouse',
+                    'file_name': 'train_target.parquet'}},
+                'model_io_manager_clf': {'config': {'base_path': '/home/jupyter-aamir09/mlops2_with_dagster/warehouse',
+                    'file_name': 'output.parquet'}},
+                'lake_io_manager': {'config': {'base_path': '/home/jupyter-aamir09/mlops2_with_dagster/warehouse/',
+                    'file_name': 'train_transformed.pq'}},
+                'model_input_manager': {'config': {'base_path': '/home/jupyter-aamir09/mlops2_with_dagster/warehouse/',
+                    'file_name': 'encoders.joblib'}},
+                'raw_data_input_manager': {'config': {'base_path': '/home/jupyter-aamir09/mlops2_with_dagster/data/incoming',
+                    'file_name': f'{filename}'}},
+                'raw_data_input_manager_test': {'config': {'base_path': '/home/jupyter-aamir09/mlops2_with_dagster/data/',
+                    'file_name': 'test.csv'}},
+                'model_io_manager_encoder': {'config': {'base_path': '/home/jupyter-aamir09/mlops2_with_dagster/warehouse/',
+                    'file_name': 'encoders.joblib'}}}
+
+                }
+            yield RunRequest(run_key=run_key, run_config=run_config)
+            max_mtime = max(max_mtime, file_mtime)
+
+    context.update_cursor(str(max_mtime))
 
 @graph(out = {'inference_results': GraphOut()},
 )
